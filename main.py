@@ -115,8 +115,8 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Caixa de Quermesse")
-        self.geometry("980x600")
-        self.minsize(900, 560)
+        self.geometry("980x700")
+        self.minsize(900, 650)
 
         # Estado
         self.produtos = carregar_produtos()  # dict nome -> preco
@@ -276,15 +276,30 @@ class App(tk.Tk):
 
         # popular
         self._atualiza_tree_sel_prod()
+        
+        ### ALTERAÇÃO INÍCIO ###
+        # Foi alterado o layout do formulário de quantidade para incluir os botões + e -
 
         # Form qtd/add
         form = ttk.Frame(frame_esq)
-        form.grid(row=1, column=0, pady=(8,0), sticky="we")
-        ttk.Label(form, text="Quantidade:").grid(row=0, column=0, sticky="w")
-        self.ent_qtd = ttk.Entry(form, width=8)
+        form.grid(row=1, column=0, pady=(8,0), sticky="w")
+        
+        ttk.Label(form, text="Quantidade:").grid(row=0, column=0, sticky="w", padx=(0,5))
+        
+        # Botão de decrementar
+        btn_dec = ttk.Button(form, text="-", width=3, command=self._decrementar_qtd)
+        btn_dec.grid(row=0, column=1)
+
+        self.ent_qtd = ttk.Entry(form, width=5, justify="center")
         self.ent_qtd.insert(0, "1")
-        self.ent_qtd.grid(row=0, column=1, padx=5)
-        ttk.Button(form, text="Adicionar à venda", command=self.adicionar_item_venda).grid(row=0, column=2, padx=5)
+        self.ent_qtd.grid(row=0, column=2, padx=2)
+
+        # Botão de incrementar
+        btn_inc = ttk.Button(form, text="+", width=3, command=self._incrementar_qtd)
+        btn_inc.grid(row=0, column=3)
+        
+        ttk.Button(form, text="Adicionar à venda", command=self.adicionar_item_venda).grid(row=0, column=4, padx=(10, 5))
+        ### ALTERAÇÃO FIM ###
 
         frame_esq.rowconfigure(0, weight=1)
         frame_esq.columnconfigure(0, weight=1)
@@ -350,11 +365,40 @@ class App(tk.Tk):
         self.venda_atual = []  # lista de tuplas (nome, qtd, preco)
         self._atualiza_total()
 
+    ### ALTERAÇÃO INÍCIO ###
+    # Foram adicionadas as duas funções abaixo para controlar os botões
+    def _decrementar_qtd(self):
+        try:
+            valor_atual = int(self.ent_qtd.get())
+        except ValueError:
+            valor_atual = 1
+        # O valor não pode ser menor que 1
+        novo_valor = max(1, valor_atual - 1)
+        self.ent_qtd.delete(0, tk.END)
+        self.ent_qtd.insert(0, str(novo_valor))
+
+    def _incrementar_qtd(self):
+        try:
+            valor_atual = int(self.ent_qtd.get())
+        except ValueError:
+            valor_atual = 1
+        novo_valor = valor_atual + 1
+        self.ent_qtd.delete(0, tk.END)
+        self.ent_qtd.insert(0, str(novo_valor))
+    ### ALTERAÇÃO FIM ###
+
     def _atualiza_tree_sel_prod(self):
-        for i in getattr(self, "tree_sel_prod", []).get_children():
-            self.tree_sel_prod.delete(i)
+        # Limpa a árvore de produtos na aba de vendas antes de atualizar.
+        if hasattr(self, 'tree_sel_prod'):
+            for i in self.tree_sel_prod.get_children():
+                self.tree_sel_prod.delete(i)
+        else:
+             return # A árvore ainda não foi criada
+
+        # Adiciona os produtos
         for nome, preco in sorted(self.produtos.items()):
             self.tree_sel_prod.insert("", "end", values=(nome, dinheiro(preco)))
+
 
     def adicionar_item_venda(self):
         sel = self.tree_sel_prod.selection()
@@ -373,6 +417,9 @@ class App(tk.Tk):
         self.venda_atual.append((nome, qtd, preco))
         self._atualiza_carrinho()
         self._atualiza_total()
+        # Reseta a quantidade para 1 para a próxima adição
+        self.ent_qtd.delete(0, tk.END)
+        self.ent_qtd.insert(0, "1")
 
     def _atualiza_carrinho(self):
         for i in self.tree_carrinho.get_children():
@@ -385,22 +432,21 @@ class App(tk.Tk):
         sel = self.tree_carrinho.selection()
         if not sel:
             return
-        vals = self.tree_carrinho.item(sel[0], "values")
-        if not vals:
-            return
-        nome, qtd_str, preco_str, _ = vals
-        # remove a primeira ocorrência correspondente (nome, qtd, preco)
+        
+        # Obter o índice do item selecionado na Treeview
+        # Isso é importante porque a venda_atual pode ter itens duplicados
+        # e queremos remover exatamente o que o usuário clicou.
+        index_selecionado = self.tree_carrinho.index(sel[0])
+
         try:
-            qtd = int(qtd_str)
-        except:
-            qtd = 1
-        preco = self.produtos.get(nome, parse_valor(preco_str))
-        for i, (n, q, p) in enumerate(self.venda_atual):
-            if n == nome and q == qtd and abs(p - preco) < 1e-9:
-                self.venda_atual.pop(i)
-                break
+            self.venda_atual.pop(index_selecionado)
+        except IndexError:
+            # Segurança caso haja alguma inconsistência
+            pass
+        
         self._atualiza_carrinho()
         self._atualiza_total()
+
 
     def limpar_carrinho(self):
         self.venda_atual.clear()
@@ -516,7 +562,7 @@ class App(tk.Tk):
         nome_sugestao = f"relatorio_quermesse_{data_str}.pdf" if REPORTLAB_OK else f"relatorio_quermesse_{data_str}.txt"
         tipos = [("PDF", "*.pdf")] if REPORTLAB_OK else [("Texto", "*.txt")]
         caminho = filedialog.asksaveasfilename(title="Salvar relatório", defaultextension=tipos[0][1].replace("*",""),
-                                               filetypes=tipos, initialfile=nome_sugestao)
+                                              filetypes=tipos, initialfile=nome_sugestao)
         if not caminho:
             return
 
