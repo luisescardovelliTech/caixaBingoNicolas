@@ -1,6 +1,6 @@
 # quermesse_caixa.py
 # Requisitos: Python 3.8+ | pip install reportlab
-# Interface em PT-BR, pensada para uso simples em quermesse, com fontes maiores e funcionais.
+# Interface em PT-BR, com fontes maiores, salvamento de vendas e alerta ao sair.
 
 import json
 import os
@@ -112,18 +112,19 @@ class App(tk.Tk):
         self.geometry("1350x650")
         self.minsize(1150, 600)
 
-        # Definição de fontes e estilo
         self.font_normal = tkfont.Font(family="Arial", size=12)
         self.font_bold = tkfont.Font(family="Arial", size=12, weight="bold")
         self.font_total = tkfont.Font(family="Arial", size=16, weight="bold")
         self._configurar_estilo()
         
-        # Estado
         self.produtos = carregar_produtos()
         self.sessao = CaixaSessao()
 
         self._montar_menu()
         self._montar_abas()
+        
+        ### NOVO: Protocolo para interceptar o fechamento da janela ###
+        self.protocol("WM_DELETE_WINDOW", self._ao_fechar)
 
     def _configurar_estilo(self):
         style = ttk.Style(self)
@@ -143,6 +144,9 @@ class App(tk.Tk):
     def _montar_menu(self):
         menubar = tk.Menu(self, font=self.font_normal)
         menu_arquivo = tk.Menu(menubar, tearoff=0, font=self.font_normal)
+        
+        ### ALTERADO: Adicionado item para salvar vendas no menu ###
+        menu_arquivo.add_command(label="Salvar Vendas da Sessão", command=self.salvar_vendas_sessao)
         menu_arquivo.add_command(label="Gerar Relatório (PDF/TXT)", command=self.gerar_relatorio)
         menu_arquivo.add_separator()
         menu_arquivo.add_command(label="Sair", command=self.destroy)
@@ -473,8 +477,9 @@ class App(tk.Tk):
         botoes = ttk.Frame(frame_esq)
         botoes.pack(side="top", pady=12, fill="x")
         
-        ### CORREÇÃO: BOTÃO DE GERAR RELATÓRIO ADICIONADO ###
-        ttk.Button(botoes, text="Gerar Relatório (PDF/TXT)", command=self.gerar_relatorio).pack(fill="x")
+        ### ALTERADO: Adicionado botão para Salvar Vendas ###
+        ttk.Button(botoes, text="Salvar Vendas", command=self.salvar_vendas_sessao).pack(fill="x")
+        ttk.Button(botoes, text="Gerar Relatório (PDF/TXT)", command=self.gerar_relatorio).pack(fill="x", pady=(4,0))
         ttk.Button(botoes, text="Atualizar Dados", command=self._atualiza_total).pack(fill="x", pady=(4,0))
         ttk.Button(botoes, text="Excluir Venda Selecionada", command=self.excluir_venda).pack(fill="x", pady=(4,0))
         
@@ -567,8 +572,37 @@ class App(tk.Tk):
             messagebox.showinfo("Sucesso", f"Relatório salvo em:\n{caminho}")
         except Exception as e:
             messagebox.showerror("Erro", f"Falha ao gerar relatório.\n{e}")
+    
+    ### NOVO: Função para salvar as vendas da sessão em um arquivo JSON ###
+    def salvar_vendas_sessao(self):
+        if self.sessao.numero_vendas == 0:
+            messagebox.showinfo("Info", "Nenhuma venda para salvar.")
+            return
 
-    ### CORREÇÃO: CÓDIGO RESTAURADO ###
+        data_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        nome_sugestao = f"vendas_{data_str}.json"
+        tipos = [("JSON", "*.json")]
+        
+        caminho = filedialog.asksaveasfilename(
+            title="Salvar vendas da sessão",
+            defaultextension=".json",
+            filetypes=tipos,
+            initialfile=nome_sugestao
+        )
+        if not caminho: return
+
+        try:
+            with open(caminho, "w", encoding="utf-8") as f:
+                json.dump(self.sessao.vendas, f, ensure_ascii=False, indent=4)
+            messagebox.showinfo("Sucesso", f"Vendas salvas em:\n{caminho}")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Falha ao salvar as vendas.\n{e}")
+
+    ### NOVO: Função chamada ao tentar fechar a janela ###
+    def _ao_fechar(self):
+        if messagebox.askyesno("Sair", "Deseja realmente sair?\nAs vendas não salvas serão perdidas."):
+            self.destroy()
+
     def _gerar_pdf(self, caminho_pdf: str):
         c = canvas.Canvas(caminho_pdf, pagesize=A4)
         _, altura = A4
@@ -622,7 +656,6 @@ class App(tk.Tk):
                 y -= 6
         c.save()
 
-    ### CORREÇÃO: CÓDIGO RESTAURADO ###
     def _gerar_txt(self, caminho_txt: str):
         with open(caminho_txt, "w", encoding="utf-8") as f:
             f.write("Relatório de Vendas - Quermesse\n")
