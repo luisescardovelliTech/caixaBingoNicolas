@@ -115,8 +115,8 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Caixa de Quermesse")
-        self.geometry("980x700")
-        self.minsize(900, 650)
+        self.geometry("1350x600")
+        self.minsize(1350, 600)
 
         # Estado
         self.produtos = carregar_produtos()  # dict nome -> preco
@@ -210,6 +210,7 @@ class App(tk.Tk):
         self.produtos[nome] = preco
         salvar_produtos(self.produtos)
         self._atualiza_lista_produtos()
+        self._atualiza_tree_sel_prod() ### ALTERAÇÃO ADICIONADA ###
         self.ent_nome.delete(0, tk.END)
         self.ent_preco.delete(0, tk.END)
 
@@ -242,6 +243,7 @@ class App(tk.Tk):
         self.produtos[novo_nome] = novo_preco
         salvar_produtos(self.produtos)
         self._atualiza_lista_produtos()
+        self._atualiza_tree_sel_prod() ### ALTERAÇÃO ADICIONADA ###
 
     def remover_produto(self):
         nome = self._produto_selecionado()
@@ -252,6 +254,7 @@ class App(tk.Tk):
             self.produtos.pop(nome, None)
             salvar_produtos(self.produtos)
             self._atualiza_lista_produtos()
+            self._atualiza_tree_sel_prod() ### ALTERAÇÃO ADICIONADA ###
 
     # ----- Aba Vendas -----
     def _montar_aba_vendas(self):
@@ -276,9 +279,6 @@ class App(tk.Tk):
 
         # popular
         self._atualiza_tree_sel_prod()
-        
-        ### ALTERAÇÃO INÍCIO ###
-        # Foi alterado o layout do formulário de quantidade para incluir os botões + e -
 
         # Form qtd/add
         form = ttk.Frame(frame_esq)
@@ -299,7 +299,6 @@ class App(tk.Tk):
         btn_inc.grid(row=0, column=3)
         
         ttk.Button(form, text="Adicionar à venda", command=self.adicionar_item_venda).grid(row=0, column=4, padx=(10, 5))
-        ### ALTERAÇÃO FIM ###
 
         frame_esq.rowconfigure(0, weight=1)
         frame_esq.columnconfigure(0, weight=1)
@@ -365,8 +364,6 @@ class App(tk.Tk):
         self.venda_atual = []  # lista de tuplas (nome, qtd, preco)
         self._atualiza_total()
 
-    ### ALTERAÇÃO INÍCIO ###
-    # Foram adicionadas as duas funções abaixo para controlar os botões
     def _decrementar_qtd(self):
         try:
             valor_atual = int(self.ent_qtd.get())
@@ -385,7 +382,6 @@ class App(tk.Tk):
         novo_valor = valor_atual + 1
         self.ent_qtd.delete(0, tk.END)
         self.ent_qtd.insert(0, str(novo_valor))
-    ### ALTERAÇÃO FIM ###
 
     def _atualiza_tree_sel_prod(self):
         # Limpa a árvore de produtos na aba de vendas antes de atualizar.
@@ -398,7 +394,6 @@ class App(tk.Tk):
         # Adiciona os produtos
         for nome, preco in sorted(self.produtos.items()):
             self.tree_sel_prod.insert("", "end", values=(nome, dinheiro(preco)))
-
 
     def adicionar_item_venda(self):
         sel = self.tree_sel_prod.selection()
@@ -433,20 +428,15 @@ class App(tk.Tk):
         if not sel:
             return
         
-        # Obter o índice do item selecionado na Treeview
-        # Isso é importante porque a venda_atual pode ter itens duplicados
-        # e queremos remover exatamente o que o usuário clicou.
         index_selecionado = self.tree_carrinho.index(sel[0])
 
         try:
             self.venda_atual.pop(index_selecionado)
         except IndexError:
-            # Segurança caso haja alguma inconsistência
             pass
         
         self._atualiza_carrinho()
         self._atualiza_total()
-
 
     def limpar_carrinho(self):
         self.venda_atual.clear()
