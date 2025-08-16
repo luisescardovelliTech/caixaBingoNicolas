@@ -1,13 +1,13 @@
 # quermesse_caixa.py
 # Requisitos: Python 3.8+ | pip install reportlab
-# Interface em PT-BR, pensada para uso simples em quermesse, com fontes maiores.
+# Interface em PT-BR, pensada para uso simples em quermesse, com fontes maiores e funcionais.
 
 import json
 import os
 from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
-from tkinter import font as tkfont # Import para manipulação de fontes
+from tkinter import font as tkfont
 
 # Tenta importar reportlab. Se não tiver, o app permite salvar TXT.
 try:
@@ -28,14 +28,12 @@ def carregar_produtos():
         try:
             with open(ARQ_PRODUTOS, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                # normaliza estrutura
                 if isinstance(data, list):
                     return {p["nome"]: float(p["preco"]) for p in data if "nome" in p and "preco" in p}
                 elif isinstance(data, dict):
                     return {str(k): float(v) for k, v in data.items()}
         except Exception:
             pass
-    # Produtos exemplo iniciais (podem ser removidos)
     return {
         "Pastel": 10.0,
         "Refrigerante": 6.0,
@@ -54,7 +52,7 @@ def salvar_produtos(produtos: dict):
 # -----------------------
 class CaixaSessao:
     def __init__(self):
-        self.vendas = []  # lista de vendas: {itens:[(nome, qtd, preco)], pagamento:str, total:float, recebido:float, troco:float}
+        self.vendas = []
     
     @property
     def total_por_produto(self):
@@ -94,15 +92,10 @@ def dinheiro(v):
         return "R$ 0,00"
 
 def parse_valor(texto: str) -> float:
-    """
-    Aceita '10', '10,50', '10.50', 'R$ 10,50' etc.
-    """
     if texto is None:
         return 0.0
     txt = texto.strip().upper().replace("R$", "").strip()
-    # troca vírgula por ponto
     txt = txt.replace(".", "").replace(",", ".") if txt.count(",") == 1 and txt.count(".") == 0 else txt
-    # também aceita caso usuário digite milhar com ponto e decimal com vírgula
     txt = txt.replace(" ", "")
     try:
         return float(txt)
@@ -116,10 +109,10 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Caixa de Quermesse")
-        self.geometry("1350x650") # Aumentado um pouco para caber as fontes
-        self.minsize(1250, 600)
+        self.geometry("1350x650")
+        self.minsize(1150, 600)
 
-        ### NOVO: DEFINIÇÃO DE FONTES E ESTILO ###
+        # Definição de fontes e estilo
         self.font_normal = tkfont.Font(family="Arial", size=12)
         self.font_bold = tkfont.Font(family="Arial", size=12, weight="bold")
         self.font_total = tkfont.Font(family="Arial", size=16, weight="bold")
@@ -132,23 +125,19 @@ class App(tk.Tk):
         self._montar_menu()
         self._montar_abas()
 
-    ### NOVO: MÉTODO PARA CONFIGURAR O ESTILO GLOBAL DO APP ###
     def _configurar_estilo(self):
         style = ttk.Style(self)
-        style.theme_use('clam') # Um tema mais moderno que o default
+        style.theme_use('clam')
 
-        # Configuração global de fontes
         style.configure("TLabel", font=self.font_normal)
         style.configure("TButton", font=self.font_normal, padding=5)
         style.configure("TEntry", font=self.font_normal)
         style.configure("TCombobox", font=self.font_normal)
         style.configure("TLabelframe.Label", font=self.font_bold)
         
-        # Configuração da fonte da lista do Combobox
         self.option_add('*TCombobox*Listbox.font', self.font_normal)
 
-        # Configuração das tabelas (Treeview)
-        style.configure("Treeview", font=self.font_normal, rowheight=30) # Aumenta altura da linha
+        style.configure("Treeview", font=self.font_normal, rowheight=30)
         style.configure("Treeview.Heading", font=self.font_bold, padding=5)
 
     def _montar_menu(self):
@@ -162,6 +151,9 @@ class App(tk.Tk):
 
     def _montar_abas(self):
         tabs = ttk.Notebook(self)
+        s = ttk.Style()
+        s.configure('TNotebook.Tab', font=self.font_bold, padding=[10, 5])
+        
         self.aba_produtos = ttk.Frame(tabs, padding=10)
         self.aba_vendas = ttk.Frame(tabs, padding=10)
         self.aba_relatorio = ttk.Frame(tabs, padding=10)
@@ -178,7 +170,6 @@ class App(tk.Tk):
     def _montar_aba_produtos(self):
         container = self.aba_produtos
         
-        # Lista
         cols = ("Produto", "Preço")
         self.tree_produtos = ttk.Treeview(container, columns=cols, show="headings", height=12)
         self.tree_produtos.heading("Produto", text="Produto")
@@ -193,24 +184,23 @@ class App(tk.Tk):
         self.tree_produtos.grid(row=0, column=0, sticky="nsew")
         yscroll.grid(row=0, column=1, sticky="ns")
 
-        # Formulário
         form = ttk.LabelFrame(container, text="Cadastro / Edição", padding=10)
-        form.grid(row=0, column=2, padx=(10,0), sticky="ns")
+        form.grid(row=0, column=2, padx=(20,0), sticky="ns")
 
         ttk.Label(form, text="Nome do produto:").grid(row=0, column=0, sticky="w")
-        self.ent_nome = ttk.Entry(form, width=28)
+        self.ent_nome = ttk.Entry(form, width=30)
         self.ent_nome.grid(row=1, column=0, pady=2, sticky="we")
 
         ttk.Label(form, text="Preço (R$):").grid(row=2, column=0, sticky="w", pady=(10,0))
-        self.ent_preco = ttk.Entry(form, width=28)
+        self.ent_preco = ttk.Entry(form, width=30)
         self.ent_preco.grid(row=3, column=0, pady=2, sticky="we")
 
         btns = ttk.Frame(form)
-        btns.grid(row=4, column=0, pady=15, sticky="we")
-        ttk.Button(btns, text="Adicionar", command=self.adicionar_produto).grid(row=0, column=0, padx=2)
-        ttk.Button(btns, text="Editar", command=self.editar_produto).grid(row=0, column=1, padx=2)
-        ttk.Button(btns, text="Remover", command=self.remover_produto).grid(row=0, column=2, padx=2)
-
+        btns.grid(row=4, column=0, pady=20, sticky="ew")
+        ttk.Button(btns, text="Adicionar", command=self.adicionar_produto).pack(side="left", expand=True, padx=2)
+        ttk.Button(btns, text="Editar", command=self.editar_produto).pack(side="left", expand=True, padx=2)
+        ttk.Button(btns, text="Remover", command=self.remover_produto).pack(side="left", expand=True, padx=2)
+        
         container.rowconfigure(0, weight=1)
         container.columnconfigure(0, weight=1)
 
@@ -317,9 +307,10 @@ class App(tk.Tk):
         
         btns_carr = ttk.Frame(frame_meio)
         btns_carr.grid(row=1, column=0, pady=(8,0), sticky="we")
-        ttk.Button(btns_carr, text="Remover item", command=self.remover_item_carrinho).grid(row=0, column=0, padx=5)
-        ttk.Button(btns_carr, text="Limpar venda", command=self.limpar_carrinho).grid(row=0, column=1, padx=5)
-        
+        ttk.Button(btns_carr, text="Remover item", command=self.remover_item_carrinho).grid(row=0, column=0, padx=5, sticky="ew")
+        ttk.Button(btns_carr, text="Limpar venda", command=self.limpar_carrinho).grid(row=0, column=1, padx=5, sticky="ew")
+        btns_carr.columnconfigure((0,1), weight=1)
+
         frame_meio.rowconfigure(0, weight=1)
         frame_meio.columnconfigure(0, weight=1)
         
@@ -332,8 +323,7 @@ class App(tk.Tk):
         self.combo_pag = ttk.Combobox(frame_dir, textvariable=self.forma_var, values=formas, state="readonly", width=15)
         self.combo_pag.grid(row=1, column=0, sticky="we", pady=2)
         self.combo_pag.bind("<<ComboboxSelected>>", lambda e: self._on_muda_pagamento())
-
-        ### ALTERADO: Aplicando fonte de destaque ###
+        
         self.lbl_total = ttk.Label(frame_dir, text="Total: R$ 0,00", font=self.font_total)
         self.lbl_total.grid(row=2, column=0, pady=(8,2), sticky="w")
 
@@ -476,12 +466,16 @@ class App(tk.Tk):
         resumo = ttk.LabelFrame(frame_esq, text="Resumo da Sessão", padding=8)
         resumo.pack(side="top", fill="x")
 
-        self.lbl_resumo = ttk.Label(resumo, text=self._texto_resumo(), justify="left")
+        self.lbl_resumo = ttk.Label(resumo, text="", justify="left")
         self.lbl_resumo.pack(anchor="w")
+        self._atualizar_resumo()
 
         botoes = ttk.Frame(frame_esq)
         botoes.pack(side="top", pady=12, fill="x")
-        ttk.Button(botoes, text="Atualizar Dados", command=self._atualiza_total).pack(fill="x")
+        
+        ### CORREÇÃO: BOTÃO DE GERAR RELATÓRIO ADICIONADO ###
+        ttk.Button(botoes, text="Gerar Relatório (PDF/TXT)", command=self.gerar_relatorio).pack(fill="x")
+        ttk.Button(botoes, text="Atualizar Dados", command=self._atualiza_total).pack(fill="x", pady=(4,0))
         ttk.Button(botoes, text="Excluir Venda Selecionada", command=self.excluir_venda).pack(fill="x", pady=(4,0))
         
         hist_frame = ttk.LabelFrame(container, text="Histórico de Vendas da Sessão", padding=8)
@@ -574,6 +568,7 @@ class App(tk.Tk):
         except Exception as e:
             messagebox.showerror("Erro", f"Falha ao gerar relatório.\n{e}")
 
+    ### CORREÇÃO: CÓDIGO RESTAURADO ###
     def _gerar_pdf(self, caminho_pdf: str):
         c = canvas.Canvas(caminho_pdf, pagesize=A4)
         _, altura = A4
@@ -588,13 +583,76 @@ class App(tk.Tk):
 
         linha("Relatório de Vendas - Quermesse", bold=True, jump=18)
         linha("Gerado em: " + datetime.now().strftime("%d/%m/%Y %H:%M"))
-        # (Restante do código de geração de PDF e TXT permanece igual)
-        # ...
+        linha(f"Vendas: {self.sessao.numero_vendas}")
+        linha(f"Total arrecadado: {dinheiro(self.sessao.total_geral)}")
+        linha(f"Ticket médio: {dinheiro(self.sessao.ticket_medio)}")
+        y -= 8
+
+        linha("Vendido por produto:", bold=True, jump=16)
+        tpp = self.sessao.total_por_produto
+        if not tpp:
+            linha("  (nenhuma venda)", jump=16)
+        else:
+            for nome, qtd in sorted(tpp.items()):
+                linha(f"  - {nome}: {int(qtd)} un.")
+        y -= 8
+
+        linha("Por forma de pagamento:", bold=True, jump=16)
+        tpg = self.sessao.total_por_pagamento
+        for k in ["Dinheiro","Débito","Crédito","Pix"]:
+            linha(f"  - {k}: {dinheiro(tpg.get(k,0.0))}")
+        y -= 8
+
+        linha("Vendas detalhadas:", bold=True, jump=16)
+        if not self.sessao.vendas:
+            linha("  (nenhuma venda)")
+        else:
+            for i, v in enumerate(self.sessao.vendas, start=1):
+                if y < 4 * cm:
+                    c.showPage()
+                    y = altura - 2 * cm
+                linha(f"Venda #{i} - {v['datahora']} - {v['pagamento']} - Total {dinheiro(v['total'])}", bold=True)
+                for nome, qtd, preco in v["itens"]:
+                    if y < 3 * cm:
+                        c.showPage()
+                        y = altura - 2 * cm
+                    linha(f"   • {nome} x{qtd} @ {dinheiro(preco)} = {dinheiro(qtd*preco)}", bold=False)
+                if v["pagamento"] == "Dinheiro":
+                    linha(f"     Recebido: {dinheiro(v['recebido'])} | Troco: {dinheiro(v['troco'])}")
+                y -= 6
+        c.save()
+
+    ### CORREÇÃO: CÓDIGO RESTAURADO ###
     def _gerar_txt(self, caminho_txt: str):
         with open(caminho_txt, "w", encoding="utf-8") as f:
             f.write("Relatório de Vendas - Quermesse\n")
-            # (Restante do código de geração de PDF e TXT permanece igual)
-            # ...
+            f.write(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n")
+            f.write(f"Vendas: {self.sessao.numero_vendas}\n")
+            f.write(f"Total arrecadado: {dinheiro(self.sessao.total_geral)}\n")
+            f.write(f"Ticket médio: {dinheiro(self.sessao.ticket_medio)}\n")
+            f.write("\nVendido por produto:\n")
+            tpp = self.sessao.total_por_produto
+            if not tpp:
+                f.write("  (nenhuma venda)\n")
+            else:
+                for nome, qtd in sorted(tpp.items()):
+                    f.write(f"  - {nome}: {int(qtd)} un.\n")
+            f.write("\nPor forma de pagamento:\n")
+            tpg = self.sessao.total_por_pagamento
+            for k in ["Dinheiro","Débito","Crédito","Pix"]:
+                f.write(f"  - {k}: {dinheiro(tpg.get(k,0.0))}\n")
+            f.write("\nVendas detalhadas:\n")
+            if not self.sessao.vendas:
+                f.write("  (nenhuma venda)\n")
+            else:
+                for i, v in enumerate(self.sessao.vendas, start=1):
+                    f.write(f"Venda #{i} - {v['datahora']} - {v['pagamento']} - Total {dinheiro(v['total'])}\n")
+                    for nome, qtd, preco in v["itens"]:
+                        f.write(f"   • {nome} x{qtd} @ {dinheiro(preco)} = {dinheiro(qtd*preco)}\n")
+                    if v["pagamento"] == "Dinheiro":
+                        f.write(f"     Recebido: {dinheiro(v['recebido'])} | Troco: {dinheiro(v['troco'])}\n")
+                    f.write("\n")
+
 
 if __name__ == "__main__":
     app = App()
