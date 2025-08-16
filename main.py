@@ -115,8 +115,8 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Caixa de Quermesse")
-        self.geometry("1350x600")
-        self.minsize(1350, 600)
+        self.geometry("1250x600")
+        self.minsize(1250, 560)
 
         # Estado
         self.produtos = carregar_produtos()  # dict nome -> preco
@@ -210,7 +210,7 @@ class App(tk.Tk):
         self.produtos[nome] = preco
         salvar_produtos(self.produtos)
         self._atualiza_lista_produtos()
-        self._atualiza_tree_sel_prod() ### ALTERAÇÃO ADICIONADA ###
+        self._atualiza_tree_sel_prod()
         self.ent_nome.delete(0, tk.END)
         self.ent_preco.delete(0, tk.END)
 
@@ -243,7 +243,7 @@ class App(tk.Tk):
         self.produtos[novo_nome] = novo_preco
         salvar_produtos(self.produtos)
         self._atualiza_lista_produtos()
-        self._atualiza_tree_sel_prod() ### ALTERAÇÃO ADICIONADA ###
+        self._atualiza_tree_sel_prod()
 
     def remover_produto(self):
         nome = self._produto_selecionado()
@@ -254,7 +254,7 @@ class App(tk.Tk):
             self.produtos.pop(nome, None)
             salvar_produtos(self.produtos)
             self._atualiza_lista_produtos()
-            self._atualiza_tree_sel_prod() ### ALTERAÇÃO ADICIONADA ###
+            self._atualiza_tree_sel_prod()
 
     # ----- Aba Vendas -----
     def _montar_aba_vendas(self):
@@ -286,7 +286,6 @@ class App(tk.Tk):
         
         ttk.Label(form, text="Quantidade:").grid(row=0, column=0, sticky="w", padx=(0,5))
         
-        # Botão de decrementar
         btn_dec = ttk.Button(form, text="-", width=3, command=self._decrementar_qtd)
         btn_dec.grid(row=0, column=1)
 
@@ -294,7 +293,6 @@ class App(tk.Tk):
         self.ent_qtd.insert(0, "1")
         self.ent_qtd.grid(row=0, column=2, padx=2)
 
-        # Botão de incrementar
         btn_inc = ttk.Button(form, text="+", width=3, command=self._incrementar_qtd)
         btn_inc.grid(row=0, column=3)
         
@@ -361,7 +359,7 @@ class App(tk.Tk):
         container.rowconfigure(0, weight=1)
 
         # Estado interno da venda atual
-        self.venda_atual = []  # lista de tuplas (nome, qtd, preco)
+        self.venda_atual = []
         self._atualiza_total()
 
     def _decrementar_qtd(self):
@@ -369,7 +367,6 @@ class App(tk.Tk):
             valor_atual = int(self.ent_qtd.get())
         except ValueError:
             valor_atual = 1
-        # O valor não pode ser menor que 1
         novo_valor = max(1, valor_atual - 1)
         self.ent_qtd.delete(0, tk.END)
         self.ent_qtd.insert(0, str(novo_valor))
@@ -384,14 +381,12 @@ class App(tk.Tk):
         self.ent_qtd.insert(0, str(novo_valor))
 
     def _atualiza_tree_sel_prod(self):
-        # Limpa a árvore de produtos na aba de vendas antes de atualizar.
         if hasattr(self, 'tree_sel_prod'):
             for i in self.tree_sel_prod.get_children():
                 self.tree_sel_prod.delete(i)
         else:
-             return # A árvore ainda não foi criada
+             return
 
-        # Adiciona os produtos
         for nome, preco in sorted(self.produtos.items()):
             self.tree_sel_prod.insert("", "end", values=(nome, dinheiro(preco)))
 
@@ -412,7 +407,6 @@ class App(tk.Tk):
         self.venda_atual.append((nome, qtd, preco))
         self._atualiza_carrinho()
         self._atualiza_total()
-        # Reseta a quantidade para 1 para a próxima adição
         self.ent_qtd.delete(0, tk.END)
         self.ent_qtd.insert(0, "1")
 
@@ -427,14 +421,11 @@ class App(tk.Tk):
         sel = self.tree_carrinho.selection()
         if not sel:
             return
-        
         index_selecionado = self.tree_carrinho.index(sel[0])
-
         try:
             self.venda_atual.pop(index_selecionado)
         except IndexError:
             pass
-        
         self._atualiza_carrinho()
         self._atualiza_total()
 
@@ -450,6 +441,13 @@ class App(tk.Tk):
         tot = self._total_venda_atual()
         self.lbl_total.config(text=f"Total: {dinheiro(tot)}")
         self.lbl_status.config(text=f"{self.sessao.numero_vendas} vendas registradas | Total {dinheiro(self.sessao.total_geral)}")
+        ### ALTERADO ###
+        # Atualiza o resumo e o histórico sempre que o total geral mudar.
+        if hasattr(self, 'lbl_resumo'):
+            self._atualizar_resumo()
+        if hasattr(self, 'tree_historico_vendas'):
+            self._atualizar_historico_vendas()
+
 
     def _on_muda_pagamento(self):
         forma = self.forma_var.get()
@@ -502,23 +500,97 @@ class App(tk.Tk):
         messagebox.showinfo("Sucesso", "Venda registrada com sucesso!")
 
     # ----- Aba Relatório -----
+    ### ALTERADO ###
+    # A aba de relatório foi reestruturada para incluir o histórico de vendas.
     def _montar_aba_relatorio(self):
         container = ttk.Frame(self.aba_relatorio, padding=12)
         container.pack(expand=True, fill="both")
+        container.columnconfigure(1, weight=1)
+        container.rowconfigure(1, weight=1)
 
-        resumo = ttk.LabelFrame(container, text="Resumo da Sessão", padding=8)
+        # Frame da esquerda com resumo e botões
+        frame_esq = ttk.Frame(container)
+        frame_esq.grid(row=0, column=0, rowspan=2, padx=(0, 10), sticky="ns")
+
+        resumo = ttk.LabelFrame(frame_esq, text="Resumo da Sessão", padding=8)
         resumo.pack(side="top", fill="x")
 
         self.lbl_resumo = ttk.Label(resumo, text=self._texto_resumo(), justify="left")
         self.lbl_resumo.pack(anchor="w")
 
-        botoes = ttk.Frame(container)
-        botoes.pack(side="top", pady=12, anchor="w")
-        ttk.Button(botoes, text="Atualizar resumo", command=self._atualizar_resumo).grid(row=0, column=0, padx=4)
-        ttk.Button(botoes, text="Gerar Relatório (PDF/TXT)", command=self.gerar_relatorio).grid(row=0, column=1, padx=4)
+        botoes = ttk.Frame(frame_esq)
+        botoes.pack(side="top", pady=12, fill="x")
+        ttk.Button(botoes, text="Atualizar Dados", command=self._atualiza_total).pack(fill="x")
+        ttk.Button(botoes, text="Excluir Venda Selecionada", command=self.excluir_venda).pack(fill="x", pady=(4,0))
+        ttk.Button(botoes, text="Gerar Relatório (PDF/TXT)", command=self.gerar_relatorio).pack(fill="x", pady=(4,0))
 
-        dica = ttk.Label(container, text="Dica: gere o relatório ao final do evento. Os produtos ficam salvos em produtos.json para a próxima vez.")
-        dica.pack(side="top", anchor="w", pady=(6,0))
+        # Frame da direita com a lista de vendas
+        hist_frame = ttk.LabelFrame(container, text="Histórico de Vendas da Sessão", padding=8)
+        hist_frame.grid(row=0, column=1, rowspan=2, sticky="nsew")
+        hist_frame.rowconfigure(0, weight=1)
+        hist_frame.columnconfigure(0, weight=1)
+
+        cols = ("ID", "Hora", "Itens", "Pagamento", "Total")
+        self.tree_historico_vendas = ttk.Treeview(hist_frame, columns=cols, show="headings")
+        self.tree_historico_vendas.grid(row=0, column=0, sticky="nsew")
+
+        # Configuração das colunas
+        self.tree_historico_vendas.heading("ID", text="#")
+        self.tree_historico_vendas.column("ID", width=40, anchor="center")
+        self.tree_historico_vendas.heading("Hora", text="Hora")
+        self.tree_historico_vendas.column("Hora", width=120)
+        self.tree_historico_vendas.heading("Itens", text="Itens")
+        self.tree_historico_vendas.column("Itens", width=250)
+        self.tree_historico_vendas.heading("Pagamento", text="Pagamento")
+        self.tree_historico_vendas.column("Pagamento", width=80)
+        self.tree_historico_vendas.heading("Total", text="Total")
+        self.tree_historico_vendas.column("Total", width=90, anchor="e")
+
+        yscroll = ttk.Scrollbar(hist_frame, orient="vertical", command=self.tree_historico_vendas.yview)
+        self.tree_historico_vendas.configure(yscroll=yscroll.set)
+        yscroll.grid(row=0, column=1, sticky="ns")
+
+    ### NOVO ###
+    # Função para popular a lista de histórico de vendas
+    def _atualizar_historico_vendas(self):
+        for i in self.tree_historico_vendas.get_children():
+            self.tree_historico_vendas.delete(i)
+        
+        for i, venda in enumerate(self.sessao.vendas):
+            venda_id = i + 1
+            try:
+                hora = datetime.fromisoformat(venda["datahora"]).strftime("%H:%M:%S")
+            except:
+                hora = "N/A"
+            
+            itens_str = ", ".join([f"{nome} (x{qtd})" for nome, qtd, _ in venda["itens"]])
+            pagamento = venda["pagamento"]
+            total = dinheiro(venda["total"])
+            
+            self.tree_historico_vendas.insert("", "end", values=(venda_id, hora, itens_str, pagamento, total))
+
+    ### NOVO ###
+    # Função para excluir a venda selecionada no histórico
+    def excluir_venda(self):
+        sel = self.tree_historico_vendas.selection()
+        if not sel:
+            messagebox.showinfo("Info", "Selecione uma venda na lista de histórico para excluir.")
+            return
+
+        # Pega o ID da venda (primeira coluna)
+        dados_venda = self.tree_historico_vendas.item(sel[0], "values")
+        venda_id = int(dados_venda[0])
+        venda_idx = venda_id - 1 # O índice na lista é ID - 1
+
+        if messagebox.askyesno("Confirmação", f"Tem certeza que deseja excluir a Venda #{venda_id}?\n\nEsta ação não pode ser desfeita."):
+            try:
+                self.sessao.vendas.pop(venda_idx)
+                # Força a atualização de toda a interface
+                self._atualiza_total()
+                messagebox.showinfo("Sucesso", f"Venda #{venda_id} foi excluída.")
+            except IndexError:
+                messagebox.showerror("Erro", "Não foi possível encontrar a venda para excluir. Tente atualizar os dados.")
+
 
     def _texto_resumo(self):
         linhas = []
@@ -612,7 +684,6 @@ class App(tk.Tk):
             linha("  (nenhuma venda)")
         else:
             for i, v in enumerate(self.sessao.vendas, start=1):
-                # quebras de página simples quando necessário
                 if y < 4 * cm:
                     c.showPage()
                     y = altura - 2 * cm
